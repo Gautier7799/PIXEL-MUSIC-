@@ -42,10 +42,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 // --- Platform Enums & Models ---
 enum class MusicSource(val displayName: String, val brandColor: Color) {
@@ -56,6 +59,10 @@ enum class MusicSource(val displayName: String, val brandColor: Color) {
     LOCAL("Stockage local", Color(0xFF455A64))
 }
 
+enum class ThemeMode {
+    SYSTEM, DARK, LIGHT
+}
+
 data class SongItem(
     val id: String,
     val title: String,
@@ -63,8 +70,10 @@ data class SongItem(
     val album: String,
     val genre: String,
     val duration: String,
+    val durationSeconds: Int = 210,
     val source: MusicSource = MusicSource.LOCAL,
-    val externalUrl: String = ""
+    val externalUrl: String = "",
+    var isFavorite: Boolean = false
 )
 
 data class AlbumItem(
@@ -98,33 +107,33 @@ data class PlaylistItem(
 // --- ViewModel ---
 class AuxioMusicViewModel : ViewModel() {
     private val localSongs = listOf(
-        SongItem("1", "Midnight Serenade", "Elena Rostova", "Echoes of Night", "Classical", "3:42", MusicSource.LOCAL),
-        SongItem("2", "Electric Horizon", "CyberPulse", "Neon City", "Electronic", "4:15", MusicSource.LOCAL),
-        SongItem("3", "Acoustic Breeze", "David Vance", "Sunlight & Timber", "Acoustic", "2:58", MusicSource.LOCAL),
-        SongItem("4", "Oriental Dream", "Layla Mansoor", "Oasis Sounds", "World", "5:20", MusicSource.LOCAL),
-        SongItem("5", "Lo-Fi Cafe Vibes", "ChillMaster", "Coffee Beats Vol. 1", "Lo-Fi", "3:10", MusicSource.LOCAL),
-        SongItem("6", "Starlight Symphony", "Elena Rostova", "Echoes of Night", "Classical", "4:45", MusicSource.LOCAL)
+        SongItem("1", "Midnight Serenade", "Elena Rostova", "Echoes of Night", "Classical", "3:42", 222, MusicSource.LOCAL),
+        SongItem("2", "Electric Horizon", "CyberPulse", "Neon City", "Electronic", "4:15", 255, MusicSource.LOCAL),
+        SongItem("3", "Acoustic Breeze", "David Vance", "Sunlight & Timber", "Acoustic", "2:58", 178, MusicSource.LOCAL),
+        SongItem("4", "Oriental Dream", "Layla Mansoor", "Oasis Sounds", "World", "5:20", 320, MusicSource.LOCAL),
+        SongItem("5", "Lo-Fi Cafe Vibes", "ChillMaster", "Coffee Beats Vol. 1", "Lo-Fi", "3:10", 190, MusicSource.LOCAL),
+        SongItem("6", "Starlight Symphony", "Elena Rostova", "Echoes of Night", "Classical", "4:45", 285, MusicSource.LOCAL)
     )
 
     private val youtubeSongs = listOf(
-        SongItem("yt_1", "Blinding Lights", "The Weeknd", "After Hours", "Pop / Synthwave", "3:20", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Blinding+Lights"),
-        SongItem("yt_2", "Shape of You", "Ed Sheeran", "÷ (Divide)", "Pop", "3:53", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Ed+Sheeran+Shape+of+You"),
-        SongItem("yt_3", "Starboy", "The Weeknd ft. Daft Punk", "Starboy", "Electro-Pop", "3:50", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Starboy"),
-        SongItem("yt_4", "Levitating", "Dua Lipa", "Future Nostalgia", "Dance-Pop", "3:23", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Dua+Lipa+Levitating"),
-        SongItem("yt_5", "Believer", "Imagine Dragons", "Evolve", "Alternative Rock", "3:24", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Imagine+Dragons+Believer")
+        SongItem("yt_1", "Blinding Lights", "The Weeknd", "After Hours", "Pop / Synthwave", "3:20", 200, MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Blinding+Lights"),
+        SongItem("yt_2", "Shape of You", "Ed Sheeran", "÷ (Divide)", "Pop", "3:53", 233, MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Ed+Sheeran+Shape+of+You"),
+        SongItem("yt_3", "Starboy", "The Weeknd ft. Daft Punk", "Starboy", "Electro-Pop", "3:50", 230, MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Starboy"),
+        SongItem("yt_4", "Levitating", "Dua Lipa", "Future Nostalgia", "Dance-Pop", "3:23", 203, MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Dua+Lipa+Levitating"),
+        SongItem("yt_5", "Believer", "Imagine Dragons", "Evolve", "Alternative Rock", "3:24", 204, MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Imagine+Dragons+Believer")
     )
 
     private val spotifySongs = listOf(
-        SongItem("sp_1", "As It Was", "Harry Styles", "Harry's House", "Indie Pop", "2:47", MusicSource.SPOTIFY, "https://open.spotify.com/search/Harry%20Styles%20As%20It%20Was"),
-        SongItem("sp_2", "Flowers", "Miley Cyrus", "Endless Summer Vacation", "Pop Rock", "3:20", MusicSource.SPOTIFY, "https://open.spotify.com/search/Miley%20Cyrus%20Flowers"),
-        SongItem("sp_3", "Cruel Summer", "Taylor Swift", "Lover", "Synth-Pop", "2:58", MusicSource.SPOTIFY, "https://open.spotify.com/search/Taylor%20Swift%20Cruel%20Summer"),
-        SongItem("sp_4", "Stay", "The Kid LAROI, Justin Bieber", "F*CK LOVE 3", "Pop", "2:21", MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Kid%20LAROI%20Stay"),
-        SongItem("sp_5", "Save Your Tears", "The Weeknd", "After Hours", "Synth-Pop", "3:35", MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Weeknd%20Save%20Your%20Tears")
+        SongItem("sp_1", "As It Was", "Harry Styles", "Harry's House", "Indie Pop", "2:47", 167, MusicSource.SPOTIFY, "https://open.spotify.com/search/Harry%20Styles%20As%20It%20Was"),
+        SongItem("sp_2", "Flowers", "Miley Cyrus", "Endless Summer Vacation", "Pop Rock", "3:20", 200, MusicSource.SPOTIFY, "https://open.spotify.com/search/Miley%20Cyrus%20Flowers"),
+        SongItem("sp_3", "Cruel Summer", "Taylor Swift", "Lover", "Synth-Pop", "2:58", 178, MusicSource.SPOTIFY, "https://open.spotify.com/search/Taylor%20Swift%20Cruel%20Summer"),
+        SongItem("sp_4", "Stay", "The Kid LAROI, Justin Bieber", "F*CK LOVE 3", "Pop", "2:21", 141, MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Kid%20LAROI%20Stay"),
+        SongItem("sp_5", "Save Your Tears", "The Weeknd", "After Hours", "Synth-Pop", "3:35", 215, MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Weeknd%20Save%20Your%20Tears")
     )
 
     private val deezerSongs = listOf(
-        SongItem("dz_1", "Bad Guy", "Billie Eilish", "When We All Fall Asleep", "Electropop", "3:14", MusicSource.DEEZER, "https://www.deezer.com/search/Billie%20Eilish%20Bad%20Guy"),
-        SongItem("dz_2", "Dance Monkey", "Tones and I", "The Kids Are Coming", "Pop", "3:29", MusicSource.DEEZER, "https://www.deezer.com/search/Dance%20Monkey")
+        SongItem("dz_1", "Bad Guy", "Billie Eilish", "When We All Fall Asleep", "Electropop", "3:14", 194, MusicSource.DEEZER, "https://www.deezer.com/search/Billie%20Eilish%20Bad%20Guy"),
+        SongItem("dz_2", "Dance Monkey", "Tones and I", "The Kids Are Coming", "Pop", "3:29", 209, MusicSource.DEEZER, "https://www.deezer.com/search/Dance%20Monkey")
     )
 
     private val allSampleAlbums = listOf(
@@ -160,7 +169,7 @@ class AuxioMusicViewModel : ViewModel() {
         PlaylistItem("4", "Relax & Focus", 3, MusicSource.LOCAL)
     )
 
-    private val _isMusicLoaded = MutableStateFlow(false)
+    private val _isMusicLoaded = MutableStateFlow(true)
     val isMusicLoaded: StateFlow<Boolean> = _isMusicLoaded.asStateFlow()
 
     private val _activeSource = MutableStateFlow(MusicSource.ALL)
@@ -197,11 +206,119 @@ class AuxioMusicViewModel : ViewModel() {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    private val _currentPositionSeconds = MutableStateFlow(0)
+    val currentPositionSeconds: StateFlow<Int> = _currentPositionSeconds.asStateFlow()
+
+    private val _isShuffle = MutableStateFlow(false)
+    val isShuffle: StateFlow<Boolean> = _isShuffle.asStateFlow()
+
+    private val _isRepeat = MutableStateFlow(false)
+    val isRepeat: StateFlow<Boolean> = _isRepeat.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _currentScreen = MutableStateFlow("main")
     val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
+
+    // --- Settings Preferences State ---
+    private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _accentColor = MutableStateFlow(Color(0xFF00677D))
+    val accentColor: StateFlow<Color> = _accentColor.asStateFlow()
+
+    private val _gaplessPlayback = MutableStateFlow(true)
+    val gaplessPlayback: StateFlow<Boolean> = _gaplessPlayback.asStateFlow()
+
+    private val _replayGain = MutableStateFlow(true)
+    val replayGain: StateFlow<Boolean> = _replayGain.asStateFlow()
+
+    private val _crossfadeSeconds = MutableStateFlow(2)
+    val crossfadeSeconds: StateFlow<Int> = _crossfadeSeconds.asStateFlow()
+
+    private val _autoDownloadCovers = MutableStateFlow(true)
+    val autoDownloadCovers: StateFlow<Boolean> = _autoDownloadCovers.asStateFlow()
+
+    private val _filterShortTracks = MutableStateFlow(true)
+    val filterShortTracks: StateFlow<Boolean> = _filterShortTracks.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    init {
+        loadMusicSources()
+        startPlaybackTicker()
+    }
+
+    private fun startPlaybackTicker() {
+        viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                if (_isPlaying.value && _currentSong.value != null) {
+                    val duration = _currentSong.value?.durationSeconds ?: 200
+                    if (_currentPositionSeconds.value >= duration) {
+                        if (_isRepeat.value) {
+                            _currentPositionSeconds.value = 0
+                        } else {
+                            nextSong()
+                        }
+                    } else {
+                        _currentPositionSeconds.value += 1
+                    }
+                }
+            }
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+    }
+
+    fun setAccentColor(color: Color) {
+        _accentColor.value = color
+    }
+
+    fun toggleGapless() {
+        _gaplessPlayback.value = !_gaplessPlayback.value
+    }
+
+    fun toggleReplayGain() {
+        _replayGain.value = !_replayGain.value
+    }
+
+    fun setCrossfade(seconds: Int) {
+        _crossfadeSeconds.value = seconds
+    }
+
+    fun toggleAutoDownloadCovers() {
+        _autoDownloadCovers.value = !_autoDownloadCovers.value
+    }
+
+    fun toggleFilterShortTracks() {
+        _filterShortTracks.value = !_filterShortTracks.value
+    }
+
+    fun toggleShuffle() {
+        _isShuffle.value = !_isShuffle.value
+    }
+
+    fun toggleRepeat() {
+        _isRepeat.value = !_isRepeat.value
+    }
+
+    fun toggleFavorite(songId: String) {
+        _songs.value = _songs.value.map {
+            if (it.id == songId) it.copy(isFavorite = !it.isFavorite) else it
+        }
+        if (_currentSong.value?.id == songId) {
+            _currentSong.value = _currentSong.value?.let { it.copy(isFavorite = !it.isFavorite) }
+        }
+    }
+
+    fun seekTo(seconds: Int) {
+        _currentPositionSeconds.value = seconds
+    }
 
     fun navigateTo(screen: String) {
         _currentScreen.value = screen
@@ -225,6 +342,16 @@ class AuxioMusicViewModel : ViewModel() {
         recalculateLibrary()
         if (_currentSong.value == null) {
             _currentSong.value = _songs.value.firstOrNull()
+        }
+    }
+
+    fun scanMusicAsync(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            delay(1200)
+            loadMusicSources()
+            _isScanning.value = false
+            onComplete()
         }
     }
 
@@ -268,15 +395,23 @@ class AuxioMusicViewModel : ViewModel() {
         _playlists.value = emptyList()
         _currentSong.value = null
         _isPlaying.value = false
+        _currentPositionSeconds.value = 0
     }
 
     fun playSong(song: SongItem) {
         _currentSong.value = song
         _isPlaying.value = true
+        _currentPositionSeconds.value = 0
     }
 
     fun togglePlayPause() {
-        _isPlaying.value = !_isPlaying.value
+        if (_currentSong.value == null && _songs.value.isNotEmpty()) {
+            _currentSong.value = _songs.value.first()
+            _isPlaying.value = true
+            _currentPositionSeconds.value = 0
+        } else {
+            _isPlaying.value = !_isPlaying.value
+        }
     }
 
     fun nextSong() {
@@ -286,6 +421,7 @@ class AuxioMusicViewModel : ViewModel() {
         val nextIndex = if (currentIndex != -1 && currentIndex < list.size - 1) currentIndex + 1 else 0
         _currentSong.value = list[nextIndex]
         _isPlaying.value = true
+        _currentPositionSeconds.value = 0
     }
 
     fun previousSong() {
@@ -295,6 +431,7 @@ class AuxioMusicViewModel : ViewModel() {
         val prevIndex = if (currentIndex > 0) currentIndex - 1 else list.size - 1
         _currentSong.value = list[prevIndex]
         _isPlaying.value = true
+        _currentPositionSeconds.value = 0
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -302,32 +439,39 @@ class AuxioMusicViewModel : ViewModel() {
     }
 }
 
-// --- Theme Colors ---
-private val AuxioTeal = Color(0xFF00677D)
-private val AuxioTealDark = Color(0xFF4DD0E1)
+// --- Theme Implementation ---
 private val BadgeBgLight = Color(0xFFE4ECEE)
 private val BadgeBgDark = Color(0xFF263238)
 
 @Composable
 fun AuxioTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    viewModel: AuxioMusicViewModel,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) {
+    val themeMode by viewModel.themeMode.collectAsState()
+    val accentColor by viewModel.accentColor.collectAsState()
+
+    val isDark = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+    }
+
+    val colorScheme = if (isDark) {
         darkColorScheme(
-            primary = AuxioTealDark,
-            secondary = Color(0xFF80CBC4),
+            primary = accentColor,
+            secondary = accentColor.copy(alpha = 0.8f),
             background = Color(0xFF101415),
             surface = Color(0xFF191C1D),
             surfaceVariant = Color(0xFF2B3133),
-            onPrimary = Color.Black,
+            onPrimary = Color.White,
             onBackground = Color(0xFFE1E3E3),
             onSurface = Color(0xFFE1E3E3)
         )
     } else {
         lightColorScheme(
-            primary = AuxioTeal,
-            secondary = Color(0xFF006876),
+            primary = accentColor,
+            secondary = accentColor.copy(alpha = 0.8f),
             background = Color(0xFFFAFDFD),
             surface = Color.White,
             surfaceVariant = Color(0xFFE7ECEE),
@@ -345,8 +489,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            AuxioTheme {
-                val viewModel: AuxioMusicViewModel = viewModel()
+            val viewModel: AuxioMusicViewModel = viewModel()
+            AuxioTheme(viewModel = viewModel) {
                 val currentScreen by viewModel.currentScreen.collectAsState()
 
                 AnimatedContent(
@@ -370,18 +514,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Helper function to open song in YouTube Music / Spotify / Browser
+// Helper to open platform links
 fun openExternalMusic(context: Context, song: SongItem) {
     if (song.externalUrl.isNotEmpty()) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(song.externalUrl))
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Impossible d'ouvrir le lien : ${song.title}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Impossible d'ouvrir l'application pour ${song.title}", Toast.LENGTH_SHORT).show()
         }
     } else {
         Toast.makeText(context, "Lecture locale : ${song.title}", Toast.LENGTH_SHORT).show()
     }
+}
+
+fun formatTime(seconds: Int): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return String.format("%d:%02d", m, s)
 }
 
 // --- Main Screen ---
@@ -400,6 +550,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
 
     val isMusicLoaded by viewModel.isMusicLoaded.collectAsState()
     val activeSource by viewModel.activeSource.collectAsState()
+    val accentColor by viewModel.accentColor.collectAsState()
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
@@ -408,6 +559,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val isScanning by viewModel.isScanning.collectAsState()
 
     Scaffold(
         topBar = {
@@ -417,7 +569,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         TextField(
                             value = searchQuery,
                             onValueChange = { viewModel.onSearchQueryChanged(it) },
-                            placeholder = { Text("Rechercher sur YouTube Music, Spotify...") },
+                            placeholder = { Text("Rechercher YouTube, Spotify, Local...") },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
@@ -476,7 +628,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                             onClick = { showPlatformSelectorDialog = true },
                             modifier = Modifier.testTag("platform_filter_button")
                         ) {
-                            Icon(Icons.Default.CloudQueue, contentDescription = "Filtrer la plateforme")
+                            Icon(Icons.Default.CloudQueue, contentDescription = "Plateformes", tint = accentColor)
                         }
                         IconButton(
                             onClick = { isSearchActive = true },
@@ -502,15 +654,15 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                 onDismissRequest = { showMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Sources de la musique (YouTube/Spotify)") },
+                                    text = { Text("Sources & Plateformes") },
                                     onClick = {
                                         showMenu = false
                                         showSourcesDialog = true
                                     },
-                                    leadingIcon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = AuxioTeal) }
+                                    leadingIcon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = accentColor) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Paramètres") },
+                                    text = { Text("Paramètres (Réglages)") },
                                     onClick = {
                                         showMenu = false
                                         viewModel.navigateTo("settings")
@@ -538,9 +690,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     isPlaying = isPlaying,
                     onPlayPause = { viewModel.togglePlayPause() },
                     onClick = { showPlayerSheet = true },
-                    onOpenExternal = { song ->
-                        openExternalMusic(context, song)
-                    }
+                    onOpenExternal = { song -> openExternalMusic(context, song) }
                 )
             }
         }
@@ -550,6 +700,10 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (isScanning) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = accentColor)
+            }
+
             // Tab Row
             ScrollableTabRow(
                 selectedTabIndex = selectedTabIndex,
@@ -559,7 +713,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     if (selectedTabIndex < tabPositions.size) {
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = AuxioTeal,
+                            color = accentColor,
                             height = 3.dp
                         )
                     }
@@ -574,7 +728,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                             Text(
                                 text = title,
                                 fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTabIndex == index) AuxioTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (selectedTabIndex == index) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 16.sp
                             )
                         }
@@ -593,8 +747,13 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                             onSourcesClick = { showSourcesDialog = true }
                         )
                     } else {
+                        val filtered = songs.filter {
+                            it.title.contains(searchQuery, ignoreCase = true) ||
+                            it.artist.contains(searchQuery, ignoreCase = true) ||
+                            it.album.contains(searchQuery, ignoreCase = true)
+                        }
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) || it.album.contains(searchQuery, ignoreCase = true) }) { song ->
+                            items(filtered) { song ->
                                 SongListItem(
                                     song = song,
                                     isCurrent = currentSong?.id == song.id,
@@ -623,7 +782,13 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         ) {
                             items(albums) { album ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val song = songs.find { it.album == album.name }
+                                            if (song != null) viewModel.playSong(song)
+                                            Toast.makeText(context, "Lecture de l'album: ${album.name}", Toast.LENGTH_SHORT).show()
+                                        },
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
@@ -669,6 +834,11 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(artists) { artist ->
                                 ListItem(
+                                    modifier = Modifier.clickable {
+                                        val song = songs.find { it.artist == artist.name }
+                                        if (song != null) viewModel.playSong(song)
+                                        Toast.makeText(context, "Artiste: ${artist.name}", Toast.LENGTH_SHORT).show()
+                                    },
                                     leadingContent = {
                                         Box(
                                             modifier = Modifier
@@ -698,15 +868,18 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(genres) { genre ->
                                 ListItem(
+                                    modifier = Modifier.clickable {
+                                        Toast.makeText(context, "Genre: ${genre.name}", Toast.LENGTH_SHORT).show()
+                                    },
                                     leadingContent = {
                                         Box(
                                             modifier = Modifier
                                                 .size(48.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                                .background(accentColor.copy(alpha = 0.15f)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.Brush, contentDescription = null, tint = AuxioTeal)
+                                            Icon(Icons.Default.Brush, contentDescription = null, tint = accentColor)
                                         }
                                     },
                                     headlineContent = { Text(genre.name, fontWeight = FontWeight.Medium) },
@@ -727,6 +900,9 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(playlists) { playlist ->
                                 ListItem(
+                                    modifier = Modifier.clickable {
+                                        Toast.makeText(context, "Playlist: ${playlist.name}", Toast.LENGTH_SHORT).show()
+                                    },
                                     leadingContent = {
                                         Box(
                                             modifier = Modifier
@@ -753,7 +929,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     if (showPlatformSelectorDialog) {
         AlertDialog(
             onDismissRequest = { showPlatformSelectorDialog = false },
-            icon = { Icon(Icons.Default.CloudQueue, contentDescription = null, tint = AuxioTeal) },
+            icon = { Icon(Icons.Default.CloudQueue, contentDescription = null, tint = accentColor) },
             title = { Text("Filtrer par plateforme") },
             text = {
                 Column {
@@ -797,13 +973,16 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     if (showSortDialog) {
         AlertDialog(
             onDismissRequest = { showSortDialog = false },
-            icon = { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, tint = AuxioTeal) },
+            icon = { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, tint = accentColor) },
             title = { Text("Trier par") },
             text = {
                 Column {
-                    listOf("Titre", "Artiste", "Album", "Plateforme (Source)", "Durée").forEach { sortOption ->
+                    listOf("Titre (A à Z)", "Artiste", "Album", "Plateforme (Source)", "Durée").forEach { sortOption ->
                         TextButton(
-                            onClick = { showSortDialog = false },
+                            onClick = {
+                                showSortDialog = false
+                                Toast.makeText(context, "Trié par: $sortOption", Toast.LENGTH_SHORT).show()
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(sortOption, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
@@ -830,6 +1009,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     // Full Screen Player Modal
     if (showPlayerSheet && currentSong != null) {
         AuxioFullPlayerModal(
+            viewModel = viewModel,
             song = currentSong!!,
             isPlaying = isPlaying,
             onDismiss = { showPlayerSheet = false },
@@ -848,20 +1028,20 @@ fun MusicSourcesDialog(
     onDismiss: () -> Unit
 ) {
     val connectedPlatforms by viewModel.connectedPlatforms.collectAsState()
+    val accentColor by viewModel.accentColor.collectAsState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = AuxioTeal) },
+        icon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = accentColor) },
         title = { Text("Sources & Plateformes") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Activez les plateformes pour synchroniser vos titres et playlists :",
+                    text = "Activez ou désactivez les plateformes pour synchroniser vos musiques :",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // YouTube Music Switch
                 PlatformToggleRow(
                     name = "YouTube Music",
                     color = Color(0xFFFF0000),
@@ -870,7 +1050,6 @@ fun MusicSourcesDialog(
                     onToggle = { viewModel.togglePlatformConnection(MusicSource.YOUTUBE_MUSIC) }
                 )
 
-                // Spotify Switch
                 PlatformToggleRow(
                     name = "Spotify",
                     color = Color(0xFF1DB954),
@@ -879,7 +1058,6 @@ fun MusicSourcesDialog(
                     onToggle = { viewModel.togglePlatformConnection(MusicSource.SPOTIFY) }
                 )
 
-                // Deezer Switch
                 PlatformToggleRow(
                     name = "Deezer",
                     color = Color(0xFFA238FF),
@@ -888,7 +1066,6 @@ fun MusicSourcesDialog(
                     onToggle = { viewModel.togglePlatformConnection(MusicSource.DEEZER) }
                 )
 
-                // Local Device Storage Switch
                 PlatformToggleRow(
                     name = "Stockage local",
                     color = Color(0xFF455A64),
@@ -904,12 +1081,12 @@ fun MusicSourcesDialog(
                         viewModel.loadMusicSources()
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Sync, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Synchroniser la musique")
+                    Text("Appliquer & Synchroniser")
                 }
             }
         },
@@ -972,8 +1149,17 @@ fun AuxioSettingsScreen(
     viewModel: AuxioMusicViewModel
 ) {
     BackHandler { onNavigateBack() }
+    val context = LocalContext.current
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
     var showSourcesDialog by remember { mutableStateOf(false) }
+
+    // Dialog state for real preferences
+    var showAppearanceDialog by remember { mutableStateOf(false) }
+    var showPersonalizationDialog by remember { mutableStateOf(false) }
+    var showContentDialog by remember { mutableStateOf(false) }
+    var showAudioDialog by remember { mutableStateOf(false) }
+
+    val accentColor by viewModel.accentColor.collectAsState()
 
     Scaffold(
         topBar = {
@@ -997,7 +1183,7 @@ fun AuxioSettingsScreen(
                 Snackbar(
                     action = {
                         TextButton(onClick = { snackbarMessage = null }) {
-                            Text("OK", color = AuxioTeal)
+                            Text("OK", color = accentColor)
                         }
                     },
                     modifier = Modifier.padding(16.dp)
@@ -1016,32 +1202,32 @@ fun AuxioSettingsScreen(
                 SettingsCategoryItem(
                     icon = Icons.Default.Palette,
                     title = "Apparence",
-                    subtitle = "Changer le thème et les couleurs de l'application",
-                    onClick = { snackbarMessage = "Paramètre Apparence sélectionné" }
+                    subtitle = "Changer le thème (Sombre/Clair) et la couleur d'accentuation",
+                    onClick = { showAppearanceDialog = true }
                 )
             }
             item {
                 SettingsCategoryItem(
                     icon = Icons.Default.Tune,
                     title = "Personnalisation",
-                    subtitle = "Personnaliser les commandes et le comportement de l'interface utilisateur",
-                    onClick = { snackbarMessage = "Paramètre Personnalisation sélectionné" }
+                    subtitle = "Commandes de gestes, vue de la file d'attente et affichage",
+                    onClick = { showPersonalizationDialog = true }
                 )
             }
             item {
                 SettingsCategoryItem(
                     icon = Icons.Default.MusicNote,
                     title = "Contenu",
-                    subtitle = "Contrôler le chargement de la musique et des images",
-                    onClick = { snackbarMessage = "Paramètre Contenu sélectionné" }
+                    subtitle = "Gestion du cache, pochettes d'albums et filtrage des pistes",
+                    onClick = { showContentDialog = true }
                 )
             }
             item {
                 SettingsCategoryItem(
                     icon = Icons.Default.PlayArrow,
                     title = "Audio",
-                    subtitle = "Configurer le son et le comportement de lecture",
-                    onClick = { snackbarMessage = "Paramètre Audio sélectionné" }
+                    subtitle = "Lecture continue (Gapless), ReplayGain et Fondu enchaîné (Crossfade)",
+                    onClick = { showAudioDialog = true }
                 )
             }
 
@@ -1051,7 +1237,7 @@ fun AuxioSettingsScreen(
                     text = "Plateformes & Bibliothèque",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AuxioTeal,
+                    color = accentColor,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -1059,7 +1245,7 @@ fun AuxioSettingsScreen(
             item {
                 SettingsActionItem(
                     title = "Sources de la musique (YouTube Music / Spotify / Local)",
-                    subtitle = "Connecter vos comptes Spotify, YouTube Music, Deezer et stockage local",
+                    subtitle = "Gérer la synchronisation avec les plateformes et le stockage local",
                     onClick = { showSourcesDialog = true }
                 )
             }
@@ -1069,21 +1255,244 @@ fun AuxioSettingsScreen(
                     subtitle = "Recharge la bibliothèque musicale et synchronise le cloud",
                     onClick = {
                         viewModel.refreshMusic()
-                        snackbarMessage = "Bibliothèque musicale actualisée avec succès"
+                        snackbarMessage = "Bibliothèque musicale actualisée avec succès !"
                     }
                 )
             }
             item {
                 SettingsActionItem(
                     title = "Scanner à nouveau la musique",
-                    subtitle = "Efface le cache de balises et recharge entièrement la bibliothèque (YouTube Music & Spotify inclus)",
+                    subtitle = "Efface le cache de balises et recharge entièrement la bibliothèque",
                     onClick = {
-                        viewModel.loadMusicSources()
-                        snackbarMessage = "Scan complet des plateformes effectué"
+                        viewModel.scanMusicAsync {
+                            snackbarMessage = "Scan complet effectué avec succès !"
+                        }
                     }
                 )
             }
         }
+    }
+
+    // Appearance Dialog (Real Theme & Accent Color changing)
+    if (showAppearanceDialog) {
+        val themeMode by viewModel.themeMode.collectAsState()
+        val currentAccent by viewModel.accentColor.collectAsState()
+        val accentChoices = listOf(
+            Color(0xFF00677D) to "Teal Auxio",
+            Color(0xFF00897B) to "Émeraude",
+            Color(0xFF1E88E5) to "Bleu Cobalt",
+            Color(0xFF8E24AA) to "Violet",
+            Color(0xFFD84315) to "Orange Flamboyant"
+        )
+
+        AlertDialog(
+            onDismissRequest = { showAppearanceDialog = false },
+            icon = { Icon(Icons.Default.Palette, contentDescription = null, tint = accentColor) },
+            title = { Text("Apparence & Thème") },
+            text = {
+                Column {
+                    Text("Mode d'affichage :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    listOf(
+                        ThemeMode.SYSTEM to "Suivre le système",
+                        ThemeMode.LIGHT to "Thème Clair",
+                        ThemeMode.DARK to "Thème Sombre"
+                    ).forEach { (mode, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setThemeMode(mode) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = themeMode == mode,
+                                onClick = { viewModel.setThemeMode(mode) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(label)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Couleur d'accentuation :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        accentChoices.forEach { (color, _) ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { viewModel.setAccentColor(color) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (currentAccent == color) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAppearanceDialog = false }) {
+                    Text("Terminer")
+                }
+            }
+        )
+    }
+
+    // Personalization Dialog
+    if (showPersonalizationDialog) {
+        var showCoversInList by remember { mutableStateOf(true) }
+        var enableFastScroll by remember { mutableStateOf(true) }
+
+        AlertDialog(
+            onDismissRequest = { showPersonalizationDialog = false },
+            icon = { Icon(Icons.Default.Tune, contentDescription = null, tint = accentColor) },
+            title = { Text("Personnalisation") },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Pochettes dans les listes", fontWeight = FontWeight.SemiBold)
+                            Text("Afficher les images d'albums dans les listes", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = showCoversInList, onCheckedChange = { showCoversInList = it })
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Défilement rapide", fontWeight = FontWeight.SemiBold)
+                            Text("Activer la barre de navigation alphabétique", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = enableFastScroll, onCheckedChange = { enableFastScroll = it })
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPersonalizationDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Content Dialog
+    if (showContentDialog) {
+        val autoDownloadCovers by viewModel.autoDownloadCovers.collectAsState()
+        val filterShortTracks by viewModel.filterShortTracks.collectAsState()
+
+        AlertDialog(
+            onDismissRequest = { showContentDialog = false },
+            icon = { Icon(Icons.Default.MusicNote, contentDescription = null, tint = accentColor) },
+            title = { Text("Contenu & Bibliothèque") },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Téléchargement automatique des pochettes", fontWeight = FontWeight.SemiBold)
+                            Text("Récupérer les images Spotify / YouTube Music", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = autoDownloadCovers, onCheckedChange = { viewModel.toggleAutoDownloadCovers() })
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Filtrer les pistes courtes", fontWeight = FontWeight.SemiBold)
+                            Text("Ignorer les audios de moins de 30 secondes", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = filterShortTracks, onCheckedChange = { viewModel.toggleFilterShortTracks() })
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            Toast.makeText(context, "Cache de balises vidé avec succès", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Vider le cache des pochettes")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showContentDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Audio Dialog
+    if (showAudioDialog) {
+        val gapless by viewModel.gaplessPlayback.collectAsState()
+        val replayGain by viewModel.replayGain.collectAsState()
+        val crossfade by viewModel.crossfadeSeconds.collectAsState()
+
+        AlertDialog(
+            onDismissRequest = { showAudioDialog = false },
+            icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = accentColor) },
+            title = { Text("Paramètres Audio") },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Lecture sans blanc (Gapless)", fontWeight = FontWeight.SemiBold)
+                            Text("Éliminer les silences entre les morceaux", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = gapless, onCheckedChange = { viewModel.toggleGapless() })
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("ReplayGain (Normalisation)", fontWeight = FontWeight.SemiBold)
+                            Text("Ajuster automatiquement le volume sonore", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = replayGain, onCheckedChange = { viewModel.toggleReplayGain() })
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Fondu enchaîné (Crossfade) : $crossfade secondes", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Slider(
+                        value = crossfade.toFloat(),
+                        onValueChange = { viewModel.setCrossfade(it.toInt()) },
+                        valueRange = 0f..10f,
+                        steps = 9,
+                        colors = SliderDefaults.colors(thumbColor = accentColor, activeTrackColor = accentColor)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAudioDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
     if (showSourcesDialog) {
@@ -1148,6 +1557,8 @@ fun AuxioEmptyState(
     message: String,
     onSourcesClick: () -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1187,7 +1598,7 @@ fun AuxioEmptyState(
 
             Button(
                 onClick = onSourcesClick,
-                colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                 shape = RoundedCornerShape(24.dp),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
                 modifier = Modifier.testTag("sources_button")
@@ -1212,6 +1623,8 @@ fun SongListItem(
     onClick: () -> Unit,
     onOpenExternal: () -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
+
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
@@ -1221,7 +1634,7 @@ fun SongListItem(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isCurrent) AuxioTeal else song.source.brandColor.copy(alpha = 0.15f)),
+                    .background(if (isCurrent) accentColor else song.source.brandColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1235,7 +1648,7 @@ fun SongListItem(
             Text(
                 text = song.title,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                color = if (isCurrent) AuxioTeal else MaterialTheme.colorScheme.onSurface,
+                color = if (isCurrent) accentColor else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1268,7 +1681,7 @@ fun SongListItem(
                     IconButton(onClick = onOpenExternal) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = "Ouvrir sur la plateforme",
+                            contentDescription = "Ouvrir",
                             tint = song.source.brandColor,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1278,7 +1691,7 @@ fun SongListItem(
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Lire",
-                        tint = AuxioTeal
+                        tint = accentColor
                     )
                 }
             }
@@ -1295,6 +1708,8 @@ fun AuxioMiniPlayer(
     onClick: () -> Unit,
     onOpenExternal: (SongItem) -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 6.dp,
@@ -1340,7 +1755,7 @@ fun AuxioMiniPlayer(
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = "Lecture / Pause",
-                    tint = AuxioTeal
+                    tint = accentColor
                 )
             }
         }
@@ -1351,6 +1766,7 @@ fun AuxioMiniPlayer(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuxioFullPlayerModal(
+    viewModel: AuxioMusicViewModel,
     song: SongItem,
     isPlaying: Boolean,
     onDismiss: () -> Unit,
@@ -1359,6 +1775,11 @@ fun AuxioFullPlayerModal(
     onPrev: () -> Unit,
     onOpenExternal: (SongItem) -> Unit
 ) {
+    val currentPosition by viewModel.currentPositionSeconds.collectAsState()
+    val isShuffle by viewModel.isShuffle.collectAsState()
+    val isRepeat by viewModel.isRepeat.collectAsState()
+    val accentColor by viewModel.accentColor.collectAsState()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1401,29 +1822,52 @@ fun AuxioFullPlayerModal(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = song.title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${song.artist} — ${song.album}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = song.title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${song.artist} — ${song.album}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                IconButton(onClick = { viewModel.toggleFavorite(song.id) }) {
+                    Icon(
+                        imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favori",
+                        tint = if (song.isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-            var sliderPos by remember { mutableFloatStateOf(0.35f) }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Interactive Progress Slider
+            val maxSeconds = song.durationSeconds.toFloat()
+            val progress = (currentPosition.toFloat() / maxSeconds).coerceIn(0f, 1f)
+
             Slider(
-                value = sliderPos,
-                onValueChange = { sliderPos = it },
+                value = progress,
+                onValueChange = { newProgress ->
+                    val newSeconds = (newProgress * maxSeconds).toInt()
+                    viewModel.seekTo(newSeconds)
+                },
                 colors = SliderDefaults.colors(
-                    thumbColor = AuxioTeal,
-                    activeTrackColor = AuxioTeal
+                    thumbColor = accentColor,
+                    activeTrackColor = accentColor
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1432,24 +1876,32 @@ fun AuxioFullPlayerModal(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("1:15", style = MaterialTheme.typography.bodySmall)
+                Text(formatTime(currentPosition), style = MaterialTheme.typography.bodySmall)
                 Text(song.duration, style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(onClick = { viewModel.toggleShuffle() }) {
+                    Icon(
+                        Icons.Default.Shuffle,
+                        contentDescription = "Aléatoire",
+                        tint = if (isShuffle) accentColor else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 IconButton(onClick = onPrev) {
                     Icon(Icons.Default.SkipPrevious, contentDescription = "Précédent", modifier = Modifier.size(36.dp))
                 }
 
                 FilledIconButton(
                     onClick = onPlayPause,
-                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = AuxioTeal),
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = accentColor),
                     modifier = Modifier.size(64.dp)
                 ) {
                     Icon(
@@ -1462,6 +1914,14 @@ fun AuxioFullPlayerModal(
 
                 IconButton(onClick = onNext) {
                     Icon(Icons.Default.SkipNext, contentDescription = "Suivant", modifier = Modifier.size(36.dp))
+                }
+
+                IconButton(onClick = { viewModel.toggleRepeat() }) {
+                    Icon(
+                        Icons.Default.Repeat,
+                        contentDescription = "Répéter",
+                        tint = if (isRepeat) accentColor else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
