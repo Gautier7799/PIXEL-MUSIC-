@@ -60,12 +60,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 // --- Platform Enums & Models ---
-enum class MusicSource(val displayName: String, val brandColor: Color, val badgeBg: Color) {
-    ALL("Toutes les sources", Color(0xFF00677D), Color(0xFFE0F7FA)),
-    YOUTUBE_MUSIC("YouTube Music", Color(0xFFFF0000), Color(0xFFFFEBEE)),
-    SPOTIFY("Spotify", Color(0xFF1DB954), Color(0xFFE8F8EE)),
-    DEEZER("Deezer", Color(0xFFA238FF), Color(0xFFF3E5F5)),
-    LOCAL("Stockage local", Color(0xFF455A64), Color(0xFFECEFF1))
+enum class MusicSource(
+    val displayName: String,
+    val shortName: String,
+    val brandColor: Color,
+    val badgeBg: Color
+) {
+    ALL("Toutes les sources", "Tous", Color(0xFF00677D), Color(0xFFE0F7FA)),
+    YOUTUBE_MUSIC("YouTube Music", "YT Music", Color(0xFFFF0000), Color(0xFFFFEBEE)),
+    SPOTIFY("Spotify", "Spotify", Color(0xFF1DB954), Color(0xFFE8F8EE)),
+    DEEZER("Deezer", "Deezer", Color(0xFFA238FF), Color(0xFFF3E5F5)),
+    LOCAL("Stockage local", "Local", Color(0xFF455A64), Color(0xFFECEFF1))
 }
 
 enum class ThemeMode {
@@ -695,7 +700,7 @@ class AuxioMusicViewModel : ViewModel() {
     }
 }
 
-// --- Theme Implementation with Dynamic Wallpaper Colors ---
+// --- Theme Implementation with Material You Wallpaper Colors ---
 @Composable
 fun PixelMusicTheme(
     viewModel: AuxioMusicViewModel,
@@ -919,7 +924,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        text = activeSource.displayName,
+                                        text = activeSource.shortName,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = activeSource.brandColor,
@@ -2032,12 +2037,14 @@ fun SongListItem(
         supportingContent = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
             ) {
                 Text(
                     text = "${song.artist} • ${song.duration}",
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Surface(
@@ -2045,10 +2052,12 @@ fun SongListItem(
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = song.source.displayName,
+                        text = song.source.shortName,
                         fontSize = 10.sp,
                         color = song.source.brandColor,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                     )
                 }
