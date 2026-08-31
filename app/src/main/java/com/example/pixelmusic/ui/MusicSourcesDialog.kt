@@ -14,14 +14,14 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun MusicSourcesDialog(onDismiss: () -> Unit) {
-    var selectedMode by remember { mutableStateOf(0) } // 0: تصفح الملفات, 1: النظام
+    var selectedMode by remember { mutableStateOf(0) } // 0: تصفح الملفات (Navig. fichier), 1: النظام (Système)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("مصادر الموسيقى", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("التحميل من", style = MaterialTheme.typography.labelLarge)
+                Text("تحميل من", style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 // أزرار الاختيار (Segmented Buttons)
@@ -48,6 +48,7 @@ fun MusicSourcesDialog(onDismiss: () -> Unit) {
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
+                
                 Text(
                     text = "تحميل الموسيقى من المجلدات التي ستحددها. أبطأ، لكنه أكثر موثوقية. تتطلب هذه الميزة تطبيق مدير ملفات النظام.",
                     style = MaterialTheme.typography.bodySmall,
@@ -62,7 +63,9 @@ fun MusicSourcesDialog(onDismiss: () -> Unit) {
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(), 
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(), 
                         horizontalArrangement = Arrangement.SpaceBetween, 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -77,7 +80,9 @@ fun MusicSourcesDialog(onDismiss: () -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), 
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp), 
                     horizontalArrangement = Arrangement.SpaceBetween, 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -88,10 +93,14 @@ fun MusicSourcesDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("حفظ", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onDismiss) { 
+                Text("حفظ", fontWeight = FontWeight.Bold) 
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("إلغاء", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            TextButton(onClick = onDismiss) { 
+                Text("إلغاء", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+            }
         }
     )
 }
