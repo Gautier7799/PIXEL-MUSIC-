@@ -5,15 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.pixelmusic.ui.AppNavigation
-import com.example.pixelmusic.ui.theme.MyApplicationTheme
+import com.example.pixelmusic.ui.theme.PixelMusicTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
-                AppNavigation() // تم تغيير هذا السطر ليدعم التنقل بين الشاشات
+            PixelMusicTheme {
+                AppNavigation()
             }
         }
     }
