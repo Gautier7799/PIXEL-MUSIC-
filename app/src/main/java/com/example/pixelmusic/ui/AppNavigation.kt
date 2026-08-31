@@ -19,9 +19,7 @@ fun AppNavigation() {
         }
 
         composable("search_screen") {
-            SearchScreen(
-                onBackClick = { navController.popBackStack() }
-            )
+            // سنضع شاشة البحث هنا لاحقاً
         }
 
         composable("settings_screen") {
