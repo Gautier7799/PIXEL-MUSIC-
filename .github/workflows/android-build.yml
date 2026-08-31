@@ -1,6 +1,5 @@
 name: Android Build 🚀
 
-# متى يتم تشغيل هذا البناء؟ (عند أي Push أو Pull Request لفرع main)
 on:
   push:
     branches: [ "main" ]
@@ -13,27 +12,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. جلب الكود من المستودع
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. إعداد بيئة Java (الضرورية لـ Gradle)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      # 3. إعطاء الصلاحية لملف gradlew لكي يعمل
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
 
-      # 4. بناء التطبيق بصيغة Debug APK
+      # تم حذف خطوة chmod تماماً، ونستخدم gradle مباشرة
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
-      # 5. حفظ الـ APK النهائي لكي تتمكن من تحميله!
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
