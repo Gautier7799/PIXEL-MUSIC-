@@ -11,21 +11,22 @@ fun AppNavigation() {
 
     NavHost(navController = navController, startDestination = "main_screen") {
         
-        // الشاشة الأولى: الرئيسية
         composable("main_screen") {
             MainScreen(
-                onNavigateToSearch = {
-                    navController.navigate("search_screen")
-                }
+                onNavigateToSearch = { navController.navigate("search_screen") },
+                onNavigateToSettings = { navController.navigate("settings_screen") }
             )
         }
 
-        // الشاشة الثانية: البحث
         composable("search_screen") {
             SearchScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                }
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings_screen") {
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() }
             )
         }
     }
