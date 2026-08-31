@@ -601,7 +601,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Auxio",
+                                text = "Pixel Music",
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
@@ -1278,7 +1278,7 @@ fun AuxioSettingsScreen(
         val themeMode by viewModel.themeMode.collectAsState()
         val currentAccent by viewModel.accentColor.collectAsState()
         val accentChoices = listOf(
-            Color(0xFF00677D) to "Teal Auxio",
+            Color(0xFF00677D) to "Teal Pixel",
             Color(0xFF00897B) to "Émeraude",
             Color(0xFF1E88E5) to "Bleu Cobalt",
             Color(0xFF8E24AA) to "Violet",
