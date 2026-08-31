@@ -4,117 +4,87 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pixelmusic.model.Song
 import com.example.pixelmusic.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
-    onBackClick: () -> Unit,
-    viewModel: MusicViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    onNavigateBack: () -> Unit = {},
+    viewModel: MusicViewModel = viewModel()
 ) {
-    var searchQuery by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
     val songs by viewModel.songs.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("بحث عن الموسيقى") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "رجوع")
-                    }
-                }
+                title = { Text("البحث عن الموسيقى") }
             )
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            // حقل البحث
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("ابحث عن أغنية أو فنان...") },
-                trailingIcon = {
-                    IconButton(onClick = { 
-                        if (searchQuery.isNotBlank()) viewModel.searchMusic(searchQuery) 
-                    }) {
-                        Icon(Icons.Default.Search, contentDescription = "بحث")
-                    }
+                value = query,
+                onValueChange = {
+                    query = it
+                    viewModel.searchMusic(it)
                 },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp)
+                label = { Text("ابحث عن أغنية أو فنان...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
-            // مؤشر التحميل أو قائمة النتائج
+            Spacer(modifier = Modifier.height(16.dp))
+
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(songs) { song ->
-                        SongItem(song = song, onClick = { /* TODO: تشغيل الأغنية */ })
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.playSong(song) },
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(song.title) },
+                                supportingContent = { Text(song.artist) },
+                                trailingContent = {
+                                    IconButton(onClick = { viewModel.playSong(song) }) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = "تشغيل")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun SongItem(song: Song, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = song.coverUrl,
-            contentDescription = "Cover for ${song.title}",
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = song.artist,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
         }
     }
 }
