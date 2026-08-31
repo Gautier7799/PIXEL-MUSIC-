@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example"
+    namespace = "com.example.pixelmusic"
     compileSdk = 35
 
     defaultConfig {
