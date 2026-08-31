@@ -9,23 +9,12 @@ import androidx.navigation.compose.rememberNavController
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "main_screen") {
-        
-        composable("main_screen") {
-            MainScreen(
-                onNavigateToSearch = { navController.navigate("search_screen") },
-                onNavigateToSettings = { navController.navigate("settings_screen") }
-            )
-        }
-
-        composable("search_screen") {
-            // سنضع شاشة البحث هنا لاحقاً
-        }
-
-        composable("settings_screen") {
-            SettingsScreen(
-                onBackClick = { navController.popBackStack() }
-            )
+    NavHost(
+        navController = navController,
+        startDestination = "search"
+    ) {
+        composable("search") {
+            SearchScreen()
         }
     }
 }
