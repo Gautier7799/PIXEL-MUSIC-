@@ -1,10 +1,11 @@
-name: Android Build 🚀
+name: Android Build
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,16 +22,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # إعداد Gradle مباشرة على سيرفرات GitHub
+      # إعداد Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.4'
 
-      # بناء التطبيق باستخدام gradle بدلاً من ./gradlew
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+      # إضافة صلاحيات التشغيل لملف gradlew
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
+      # بناء التطبيق
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      # رفع ملف الـ APK لتتمكن من تحميله
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
