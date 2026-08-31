@@ -1,6 +1,10 @@
 package com.example.pixelmusic
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -19,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -29,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,27 +47,39 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-// --- Data Models ---
+// --- Platform Enums & Models ---
+enum class MusicSource(val displayName: String, val brandColor: Color) {
+    ALL("Toutes les sources", Color(0xFF00677D)),
+    YOUTUBE_MUSIC("YouTube Music", Color(0xFFFF0000)),
+    SPOTIFY("Spotify", Color(0xFF1DB954)),
+    DEEZER("Deezer", Color(0xFFA238FF)),
+    LOCAL("Stockage local", Color(0xFF455A64))
+}
+
 data class SongItem(
     val id: String,
     val title: String,
     val artist: String,
     val album: String,
     val genre: String,
-    val duration: String
+    val duration: String,
+    val source: MusicSource = MusicSource.LOCAL,
+    val externalUrl: String = ""
 )
 
 data class AlbumItem(
     val id: String,
     val name: String,
     val artist: String,
-    val trackCount: Int
+    val trackCount: Int,
+    val source: MusicSource = MusicSource.LOCAL
 )
 
 data class ArtistItem(
     val id: String,
     val name: String,
-    val songCount: Int
+    val songCount: Int,
+    val source: MusicSource = MusicSource.LOCAL
 )
 
 data class GenreItem(
@@ -73,52 +91,90 @@ data class GenreItem(
 data class PlaylistItem(
     val id: String,
     val name: String,
-    val trackCount: Int
+    val trackCount: Int,
+    val source: MusicSource = MusicSource.LOCAL
 )
 
 // --- ViewModel ---
 class AuxioMusicViewModel : ViewModel() {
-    private val sampleSongs = listOf(
-        SongItem("1", "Midnight Serenade", "Elena Rostova", "Echoes of Night", "Classical", "3:42"),
-        SongItem("2", "Electric Horizon", "CyberPulse", "Neon City", "Electronic", "4:15"),
-        SongItem("3", "Acoustic Breeze", "David Vance", "Sunlight & Timber", "Acoustic", "2:58"),
-        SongItem("4", "Oriental Dream", "Layla Mansoor", "Oasis Sounds", "World", "5:20"),
-        SongItem("5", "Lo-Fi Cafe Vibes", "ChillMaster", "Coffee Beats Vol. 1", "Lo-Fi", "3:10"),
-        SongItem("6", "Starlight Symphony", "Elena Rostova", "Echoes of Night", "Classical", "4:45")
+    private val localSongs = listOf(
+        SongItem("1", "Midnight Serenade", "Elena Rostova", "Echoes of Night", "Classical", "3:42", MusicSource.LOCAL),
+        SongItem("2", "Electric Horizon", "CyberPulse", "Neon City", "Electronic", "4:15", MusicSource.LOCAL),
+        SongItem("3", "Acoustic Breeze", "David Vance", "Sunlight & Timber", "Acoustic", "2:58", MusicSource.LOCAL),
+        SongItem("4", "Oriental Dream", "Layla Mansoor", "Oasis Sounds", "World", "5:20", MusicSource.LOCAL),
+        SongItem("5", "Lo-Fi Cafe Vibes", "ChillMaster", "Coffee Beats Vol. 1", "Lo-Fi", "3:10", MusicSource.LOCAL),
+        SongItem("6", "Starlight Symphony", "Elena Rostova", "Echoes of Night", "Classical", "4:45", MusicSource.LOCAL)
     )
 
-    private val sampleAlbums = listOf(
-        AlbumItem("1", "Echoes of Night", "Elena Rostova", 2),
-        AlbumItem("2", "Neon City", "CyberPulse", 1),
-        AlbumItem("3", "Sunlight & Timber", "David Vance", 1),
-        AlbumItem("4", "Oasis Sounds", "Layla Mansoor", 1),
-        AlbumItem("5", "Coffee Beats Vol. 1", "ChillMaster", 1)
+    private val youtubeSongs = listOf(
+        SongItem("yt_1", "Blinding Lights", "The Weeknd", "After Hours", "Pop / Synthwave", "3:20", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Blinding+Lights"),
+        SongItem("yt_2", "Shape of You", "Ed Sheeran", "÷ (Divide)", "Pop", "3:53", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Ed+Sheeran+Shape+of+You"),
+        SongItem("yt_3", "Starboy", "The Weeknd ft. Daft Punk", "Starboy", "Electro-Pop", "3:50", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=The+Weeknd+Starboy"),
+        SongItem("yt_4", "Levitating", "Dua Lipa", "Future Nostalgia", "Dance-Pop", "3:23", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Dua+Lipa+Levitating"),
+        SongItem("yt_5", "Believer", "Imagine Dragons", "Evolve", "Alternative Rock", "3:24", MusicSource.YOUTUBE_MUSIC, "https://music.youtube.com/search?q=Imagine+Dragons+Believer")
     )
 
-    private val sampleArtists = listOf(
-        ArtistItem("1", "Elena Rostova", 2),
-        ArtistItem("2", "CyberPulse", 1),
-        ArtistItem("3", "David Vance", 1),
-        ArtistItem("4", "Layla Mansoor", 1),
-        ArtistItem("5", "ChillMaster", 1)
+    private val spotifySongs = listOf(
+        SongItem("sp_1", "As It Was", "Harry Styles", "Harry's House", "Indie Pop", "2:47", MusicSource.SPOTIFY, "https://open.spotify.com/search/Harry%20Styles%20As%20It%20Was"),
+        SongItem("sp_2", "Flowers", "Miley Cyrus", "Endless Summer Vacation", "Pop Rock", "3:20", MusicSource.SPOTIFY, "https://open.spotify.com/search/Miley%20Cyrus%20Flowers"),
+        SongItem("sp_3", "Cruel Summer", "Taylor Swift", "Lover", "Synth-Pop", "2:58", MusicSource.SPOTIFY, "https://open.spotify.com/search/Taylor%20Swift%20Cruel%20Summer"),
+        SongItem("sp_4", "Stay", "The Kid LAROI, Justin Bieber", "F*CK LOVE 3", "Pop", "2:21", MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Kid%20LAROI%20Stay"),
+        SongItem("sp_5", "Save Your Tears", "The Weeknd", "After Hours", "Synth-Pop", "3:35", MusicSource.SPOTIFY, "https://open.spotify.com/search/The%20Weeknd%20Save%20Your%20Tears")
     )
 
-    private val sampleGenres = listOf(
-        GenreItem("1", "Classical", 2),
-        GenreItem("2", "Electronic", 1),
-        GenreItem("3", "Acoustic", 1),
-        GenreItem("4", "World", 1),
-        GenreItem("5", "Lo-Fi", 1)
+    private val deezerSongs = listOf(
+        SongItem("dz_1", "Bad Guy", "Billie Eilish", "When We All Fall Asleep", "Electropop", "3:14", MusicSource.DEEZER, "https://www.deezer.com/search/Billie%20Eilish%20Bad%20Guy"),
+        SongItem("dz_2", "Dance Monkey", "Tones and I", "The Kids Are Coming", "Pop", "3:29", MusicSource.DEEZER, "https://www.deezer.com/search/Dance%20Monkey")
     )
 
-    private val samplePlaylists = listOf(
-        PlaylistItem("1", "Mes Favoris", 4),
-        PlaylistItem("2", "Relax & Chill", 3),
-        PlaylistItem("3", "Travail & Focus", 2)
+    private val allSampleAlbums = listOf(
+        AlbumItem("1", "Echoes of Night", "Elena Rostova", 2, MusicSource.LOCAL),
+        AlbumItem("2", "Neon City", "CyberPulse", 1, MusicSource.LOCAL),
+        AlbumItem("3", "After Hours", "The Weeknd", 2, MusicSource.YOUTUBE_MUSIC),
+        AlbumItem("4", "Harry's House", "Harry Styles", 1, MusicSource.SPOTIFY),
+        AlbumItem("5", "Lover", "Taylor Swift", 1, MusicSource.SPOTIFY),
+        AlbumItem("6", "Evolve", "Imagine Dragons", 1, MusicSource.YOUTUBE_MUSIC)
+    )
+
+    private val allSampleArtists = listOf(
+        ArtistItem("1", "The Weeknd", 3, MusicSource.YOUTUBE_MUSIC),
+        ArtistItem("2", "Elena Rostova", 2, MusicSource.LOCAL),
+        ArtistItem("3", "Harry Styles", 1, MusicSource.SPOTIFY),
+        ArtistItem("4", "Taylor Swift", 1, MusicSource.SPOTIFY),
+        ArtistItem("5", "CyberPulse", 1, MusicSource.LOCAL),
+        ArtistItem("6", "Imagine Dragons", 1, MusicSource.YOUTUBE_MUSIC)
+    )
+
+    private val allSampleGenres = listOf(
+        GenreItem("1", "Pop & Synth-Pop", 6),
+        GenreItem("2", "Classical", 2),
+        GenreItem("3", "Electronic", 2),
+        GenreItem("4", "Alternative Rock", 1),
+        GenreItem("5", "Acoustic & Lo-Fi", 2)
+    )
+
+    private val allSamplePlaylists = listOf(
+        PlaylistItem("1", "Mes Favoris (Local)", 4, MusicSource.LOCAL),
+        PlaylistItem("2", "Top Hits 2026 (Spotify)", 5, MusicSource.SPOTIFY),
+        PlaylistItem("3", "YouTube Music Mix", 5, MusicSource.YOUTUBE_MUSIC),
+        PlaylistItem("4", "Relax & Focus", 3, MusicSource.LOCAL)
     )
 
     private val _isMusicLoaded = MutableStateFlow(false)
     val isMusicLoaded: StateFlow<Boolean> = _isMusicLoaded.asStateFlow()
+
+    private val _activeSource = MutableStateFlow(MusicSource.ALL)
+    val activeSource: StateFlow<MusicSource> = _activeSource.asStateFlow()
+
+    private val _connectedPlatforms = MutableStateFlow(
+        mapOf(
+            MusicSource.LOCAL to true,
+            MusicSource.YOUTUBE_MUSIC to true,
+            MusicSource.SPOTIFY to true,
+            MusicSource.DEEZER to false
+        )
+    )
+    val connectedPlatforms: StateFlow<Map<MusicSource, Boolean>> = _connectedPlatforms.asStateFlow()
 
     private val _songs = MutableStateFlow<List<SongItem>>(emptyList())
     val songs: StateFlow<List<SongItem>> = _songs.asStateFlow()
@@ -144,7 +200,6 @@ class AuxioMusicViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // Navigation State
     private val _currentScreen = MutableStateFlow("main")
     val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
 
@@ -152,16 +207,50 @@ class AuxioMusicViewModel : ViewModel() {
         _currentScreen.value = screen
     }
 
+    fun togglePlatformConnection(source: MusicSource) {
+        val current = _connectedPlatforms.value.toMutableMap()
+        val newState = !(current[source] ?: false)
+        current[source] = newState
+        _connectedPlatforms.value = current
+        recalculateLibrary()
+    }
+
+    fun setFilterSource(source: MusicSource) {
+        _activeSource.value = source
+        recalculateLibrary()
+    }
+
     fun loadMusicSources() {
         _isMusicLoaded.value = true
-        _songs.value = sampleSongs
-        _albums.value = sampleAlbums
-        _artists.value = sampleArtists
-        _genres.value = sampleGenres
-        _playlists.value = samplePlaylists
+        recalculateLibrary()
         if (_currentSong.value == null) {
-            _currentSong.value = sampleSongs.firstOrNull()
+            _currentSong.value = _songs.value.firstOrNull()
         }
+    }
+
+    private fun recalculateLibrary() {
+        if (!_isMusicLoaded.value) return
+
+        val connected = _connectedPlatforms.value
+        val sourceFilter = _activeSource.value
+
+        val combinedSongs = mutableListOf<SongItem>()
+        if (connected[MusicSource.LOCAL] == true) combinedSongs.addAll(localSongs)
+        if (connected[MusicSource.YOUTUBE_MUSIC] == true) combinedSongs.addAll(youtubeSongs)
+        if (connected[MusicSource.SPOTIFY] == true) combinedSongs.addAll(spotifySongs)
+        if (connected[MusicSource.DEEZER] == true) combinedSongs.addAll(deezerSongs)
+
+        val filteredSongs = if (sourceFilter == MusicSource.ALL) {
+            combinedSongs
+        } else {
+            combinedSongs.filter { it.source == sourceFilter }
+        }
+
+        _songs.value = filteredSongs
+        _albums.value = if (sourceFilter == MusicSource.ALL) allSampleAlbums else allSampleAlbums.filter { it.source == sourceFilter }
+        _artists.value = if (sourceFilter == MusicSource.ALL) allSampleArtists else allSampleArtists.filter { it.source == sourceFilter }
+        _genres.value = allSampleGenres
+        _playlists.value = if (sourceFilter == MusicSource.ALL) allSamplePlaylists else allSamplePlaylists.filter { it.source == sourceFilter }
     }
 
     fun refreshMusic() {
@@ -281,10 +370,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Helper function to open song in YouTube Music / Spotify / Browser
+fun openExternalMusic(context: Context, song: SongItem) {
+    if (song.externalUrl.isNotEmpty()) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(song.externalUrl))
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Impossible d'ouvrir le lien : ${song.title}", Toast.LENGTH_SHORT).show()
+        }
+    } else {
+        Toast.makeText(context, "Lecture locale : ${song.title}", Toast.LENGTH_SHORT).show()
+    }
+}
+
 // --- Main Screen ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
+    val context = LocalContext.current
     val tabs = listOf("Titres", "Albums", "Artistes", "Genres", "Playlists")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -292,8 +396,10 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     var showSourcesDialog by remember { mutableStateOf(false) }
     var showPlayerSheet by remember { mutableStateOf(false) }
     var showSortDialog by remember { mutableStateOf(false) }
+    var showPlatformSelectorDialog by remember { mutableStateOf(false) }
 
     val isMusicLoaded by viewModel.isMusicLoaded.collectAsState()
+    val activeSource by viewModel.activeSource.collectAsState()
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
@@ -311,7 +417,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                         TextField(
                             value = searchQuery,
                             onValueChange = { viewModel.onSearchQueryChanged(it) },
-                            placeholder = { Text("Rechercher...") },
+                            placeholder = { Text("Rechercher sur YouTube Music, Spotify...") },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
@@ -341,14 +447,37 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
             } else {
                 TopAppBar(
                     title = {
-                        Text(
-                            text = "Auxio",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Auxio",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            if (activeSource != MusicSource.ALL) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    color = activeSource.brandColor.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = activeSource.displayName,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = activeSource.brandColor,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     },
                     actions = {
+                        IconButton(
+                            onClick = { showPlatformSelectorDialog = true },
+                            modifier = Modifier.testTag("platform_filter_button")
+                        ) {
+                            Icon(Icons.Default.CloudQueue, contentDescription = "Filtrer la plateforme")
+                        }
                         IconButton(
                             onClick = { isSearchActive = true },
                             modifier = Modifier.testTag("search_button")
@@ -373,12 +502,12 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                 onDismissRequest = { showMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Sources de la musique") },
+                                    text = { Text("Sources de la musique (YouTube/Spotify)") },
                                     onClick = {
                                         showMenu = false
                                         showSourcesDialog = true
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) }
+                                    leadingIcon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = AuxioTeal) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Paramètres") },
@@ -389,7 +518,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                     leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isMusicLoaded) "Vider la liste" else "Charger démo") },
+                                    text = { Text(if (isMusicLoaded) "Vider la liste" else "Charger toute la musique") },
                                     onClick = {
                                         showMenu = false
                                         if (isMusicLoaded) viewModel.clearMusic() else viewModel.loadMusicSources()
@@ -408,7 +537,10 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     song = currentSong!!,
                     isPlaying = isPlaying,
                     onPlayPause = { viewModel.togglePlayPause() },
-                    onClick = { showPlayerSheet = true }
+                    onClick = { showPlayerSheet = true },
+                    onOpenExternal = { song ->
+                        openExternalMusic(context, song)
+                    }
                 )
             }
         }
@@ -457,17 +589,18 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     if (!isMusicLoaded || songs.isEmpty()) {
                         AuxioEmptyState(
                             icon = Icons.Default.MusicNote,
-                            message = "Vos titres s'afficheront ici.",
+                            message = "Vos titres (YouTube Music, Spotify, Local) s'afficheront ici.",
                             onSourcesClick = { showSourcesDialog = true }
                         )
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }) { song ->
+                            items(songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) || it.album.contains(searchQuery, ignoreCase = true) }) { song ->
                                 SongListItem(
                                     song = song,
                                     isCurrent = currentSong?.id == song.id,
                                     isPlaying = isPlaying && currentSong?.id == song.id,
-                                    onClick = { viewModel.playSong(song) }
+                                    onClick = { viewModel.playSong(song) },
+                                    onOpenExternal = { openExternalMusic(context, song) }
                                 )
                             }
                         }
@@ -499,14 +632,26 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                                 .fillMaxWidth()
                                                 .aspectRatio(1f)
                                                 .clip(RoundedCornerShape(12.dp))
-                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                                .background(album.source.brandColor.copy(alpha = 0.15f)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.Album, contentDescription = null, modifier = Modifier.size(48.dp), tint = AuxioTeal)
+                                            Icon(
+                                                Icons.Default.Album,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(48.dp),
+                                                tint = album.source.brandColor
+                                            )
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(album.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("${album.artist} • ${album.trackCount} titres", style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            album.source.displayName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = album.source.brandColor,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
@@ -529,14 +674,14 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                             modifier = Modifier
                                                 .size(48.dp)
                                                 .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                                .background(artist.source.brandColor.copy(alpha = 0.2f)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.Person, contentDescription = null, tint = AuxioTeal)
+                                            Icon(Icons.Default.Person, contentDescription = null, tint = artist.source.brandColor)
                                         }
                                     },
                                     headlineContent = { Text(artist.name, fontWeight = FontWeight.Medium) },
-                                    supportingContent = { Text("${artist.songCount} titres") }
+                                    supportingContent = { Text("${artist.songCount} titres • ${artist.source.displayName}") }
                                 )
                             }
                         }
@@ -575,7 +720,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                     if (!isMusicLoaded || playlists.isEmpty()) {
                         AuxioEmptyState(
                             icon = Icons.Default.QueueMusic,
-                            message = "Vos playlists s'afficheront ici.",
+                            message = "Vos playlists Spotify, YouTube Music & Locales s'afficheront ici.",
                             onSourcesClick = { showSourcesDialog = true }
                         )
                     } else {
@@ -587,14 +732,14 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                             modifier = Modifier
                                                 .size(48.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                                .background(playlist.source.brandColor.copy(alpha = 0.2f)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.QueueMusic, contentDescription = null, tint = AuxioTeal)
+                                            Icon(Icons.Default.QueueMusic, contentDescription = null, tint = playlist.source.brandColor)
                                         }
                                     },
                                     headlineContent = { Text(playlist.name, fontWeight = FontWeight.Medium) },
-                                    supportingContent = { Text("${playlist.trackCount} titres") }
+                                    supportingContent = { Text("${playlist.trackCount} titres • ${playlist.source.displayName}") }
                                 )
                             }
                         }
@@ -602,6 +747,50 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    // Platform Selector Dialog
+    if (showPlatformSelectorDialog) {
+        AlertDialog(
+            onDismissRequest = { showPlatformSelectorDialog = false },
+            icon = { Icon(Icons.Default.CloudQueue, contentDescription = null, tint = AuxioTeal) },
+            title = { Text("Filtrer par plateforme") },
+            text = {
+                Column {
+                    MusicSource.values().forEach { source ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setFilterSource(source)
+                                    showPlatformSelectorDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = activeSource == source,
+                                onClick = {
+                                    viewModel.setFilterSource(source)
+                                    showPlatformSelectorDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = source.displayName,
+                                fontWeight = if (activeSource == source) FontWeight.Bold else FontWeight.Normal,
+                                color = if (source != MusicSource.ALL) source.brandColor else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPlatformSelectorDialog = false }) {
+                    Text("Fermer")
+                }
+            }
+        )
     }
 
     // Sort Dialog
@@ -612,7 +801,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
             title = { Text("Trier par") },
             text = {
                 Column {
-                    listOf("Titre", "Artiste", "Album", "Durée", "Date d'ajout").forEach { sortOption ->
+                    listOf("Titre", "Artiste", "Album", "Plateforme (Source)", "Durée").forEach { sortOption ->
                         TextButton(
                             onClick = { showSortDialog = false },
                             modifier = Modifier.fillMaxWidth()
@@ -632,33 +821,9 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
 
     // Sources Dialog
     if (showSourcesDialog) {
-        AlertDialog(
-            onDismissRequest = { showSourcesDialog = false },
-            icon = { Icon(Icons.Default.Folder, contentDescription = null, tint = AuxioTeal) },
-            title = { Text("Sources de la musique") },
-            text = {
-                Column {
-                    Text("Choisissez la source de votre bibliothèque musicale :")
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            viewModel.loadMusicSources()
-                            showSourcesDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.LibraryMusic, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Charger la bibliothèque musicale")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSourcesDialog = false }) {
-                    Text("Fermer")
-                }
-            }
+        MusicSourcesDialog(
+            viewModel = viewModel,
+            onDismiss = { showSourcesDialog = false }
         )
     }
 
@@ -670,7 +835,131 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
             onDismiss = { showPlayerSheet = false },
             onPlayPause = { viewModel.togglePlayPause() },
             onNext = { viewModel.nextSong() },
-            onPrev = { viewModel.previousSong() }
+            onPrev = { viewModel.previousSong() },
+            onOpenExternal = { song -> openExternalMusic(context, song) }
+        )
+    }
+}
+
+// --- Music Sources Dialog ---
+@Composable
+fun MusicSourcesDialog(
+    viewModel: AuxioMusicViewModel,
+    onDismiss: () -> Unit
+) {
+    val connectedPlatforms by viewModel.connectedPlatforms.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.CloudSync, contentDescription = null, tint = AuxioTeal) },
+        title = { Text("Sources & Plateformes") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Activez les plateformes pour synchroniser vos titres et playlists :",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // YouTube Music Switch
+                PlatformToggleRow(
+                    name = "YouTube Music",
+                    color = Color(0xFFFF0000),
+                    icon = Icons.Default.PlayCircleFilled,
+                    isConnected = connectedPlatforms[MusicSource.YOUTUBE_MUSIC] == true,
+                    onToggle = { viewModel.togglePlatformConnection(MusicSource.YOUTUBE_MUSIC) }
+                )
+
+                // Spotify Switch
+                PlatformToggleRow(
+                    name = "Spotify",
+                    color = Color(0xFF1DB954),
+                    icon = Icons.Default.Audiotrack,
+                    isConnected = connectedPlatforms[MusicSource.SPOTIFY] == true,
+                    onToggle = { viewModel.togglePlatformConnection(MusicSource.SPOTIFY) }
+                )
+
+                // Deezer Switch
+                PlatformToggleRow(
+                    name = "Deezer",
+                    color = Color(0xFFA238FF),
+                    icon = Icons.Default.Equalizer,
+                    isConnected = connectedPlatforms[MusicSource.DEEZER] == true,
+                    onToggle = { viewModel.togglePlatformConnection(MusicSource.DEEZER) }
+                )
+
+                // Local Device Storage Switch
+                PlatformToggleRow(
+                    name = "Stockage local",
+                    color = Color(0xFF455A64),
+                    icon = Icons.Default.Folder,
+                    isConnected = connectedPlatforms[MusicSource.LOCAL] == true,
+                    onToggle = { viewModel.togglePlatformConnection(MusicSource.LOCAL) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.loadMusicSources()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Sync, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Synchroniser la musique")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer")
+            }
+        }
+    )
+}
+
+@Composable
+fun PlatformToggleRow(
+    name: String,
+    color: Color,
+    icon: ImageVector,
+    isConnected: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(
+                if (isConnected) "Connecté & Synchronisé" else "Désactivé",
+                fontSize = 12.sp,
+                color = if (isConnected) color else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Switch(
+            checked = isConnected,
+            onCheckedChange = { onToggle() }
         )
     }
 }
@@ -759,7 +1048,7 @@ fun AuxioSettingsScreen(
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
                 Text(
-                    text = "Bibliothèque",
+                    text = "Plateformes & Bibliothèque",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = AuxioTeal,
@@ -769,15 +1058,15 @@ fun AuxioSettingsScreen(
 
             item {
                 SettingsActionItem(
-                    title = "Sources de la musique",
-                    subtitle = "Gérer d'où la musique doit être chargée",
+                    title = "Sources de la musique (YouTube Music / Spotify / Local)",
+                    subtitle = "Connecter vos comptes Spotify, YouTube Music, Deezer et stockage local",
                     onClick = { showSourcesDialog = true }
                 )
             }
             item {
                 SettingsActionItem(
                     title = "Actualiser la musique",
-                    subtitle = "Recharge la bibliothèque musicale, en se servant de balises en cache si possible",
+                    subtitle = "Recharge la bibliothèque musicale et synchronise le cloud",
                     onClick = {
                         viewModel.refreshMusic()
                         snackbarMessage = "Bibliothèque musicale actualisée avec succès"
@@ -787,10 +1076,10 @@ fun AuxioSettingsScreen(
             item {
                 SettingsActionItem(
                     title = "Scanner à nouveau la musique",
-                    subtitle = "Efface le cache de balises et recharge entièrement la bibliothèque musicale (lent, mais plus complet)",
+                    subtitle = "Efface le cache de balises et recharge entièrement la bibliothèque (YouTube Music & Spotify inclus)",
                     onClick = {
                         viewModel.loadMusicSources()
-                        snackbarMessage = "Scan complet effectué avec succès"
+                        snackbarMessage = "Scan complet des plateformes effectué"
                     }
                 )
             }
@@ -798,34 +1087,9 @@ fun AuxioSettingsScreen(
     }
 
     if (showSourcesDialog) {
-        AlertDialog(
-            onDismissRequest = { showSourcesDialog = false },
-            icon = { Icon(Icons.Default.Folder, contentDescription = null, tint = AuxioTeal) },
-            title = { Text("Sources de la musique") },
-            text = {
-                Column {
-                    Text("Gérer les dossiers et sources musicales :")
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            viewModel.loadMusicSources()
-                            showSourcesDialog = false
-                            snackbarMessage = "Sources musicales synchronisées"
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Synchroniser les dossiers")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSourcesDialog = false }) {
-                    Text("Fermer")
-                }
-            }
+        MusicSourcesDialog(
+            viewModel = viewModel,
+            onDismiss = { showSourcesDialog = false }
         )
     }
 }
@@ -945,7 +1209,8 @@ fun SongListItem(
     song: SongItem,
     isCurrent: Boolean,
     isPlaying: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onOpenExternal: () -> Unit
 ) {
     ListItem(
         modifier = Modifier
@@ -956,13 +1221,13 @@ fun SongListItem(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isCurrent) AuxioTeal else MaterialTheme.colorScheme.surfaceVariant),
+                    .background(if (isCurrent) AuxioTeal else song.source.brandColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.VolumeUp else Icons.Default.MusicNote,
                     contentDescription = null,
-                    tint = if (isCurrent) Color.White else AuxioTeal
+                    tint = if (isCurrent) Color.White else song.source.brandColor
                 )
             }
         },
@@ -976,19 +1241,46 @@ fun SongListItem(
             )
         },
         supportingContent = {
-            Text(
-                text = "${song.artist} • ${song.duration}",
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${song.artist} • ${song.duration}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    color = song.source.brandColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = song.source.displayName,
+                        fontSize = 10.sp,
+                        color = song.source.brandColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
         },
         trailingContent = {
-            IconButton(onClick = onClick) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = "Lire",
-                    tint = AuxioTeal
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (song.externalUrl.isNotEmpty()) {
+                    IconButton(onClick = onOpenExternal) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Ouvrir sur la plateforme",
+                            tint = song.source.brandColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onClick) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = "Lire",
+                        tint = AuxioTeal
+                    )
+                }
             }
         }
     )
@@ -1000,7 +1292,8 @@ fun AuxioMiniPlayer(
     song: SongItem,
     isPlaying: Boolean,
     onPlayPause: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onOpenExternal: (SongItem) -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -1019,17 +1312,28 @@ fun AuxioMiniPlayer(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(AuxioTeal),
+                    .background(song.source.brandColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.White)
+                Icon(Icons.Default.MusicNote, contentDescription = null, tint = song.source.brandColor)
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(song.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                Text("${song.artist} • ${song.source.displayName}", style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            }
+
+            if (song.externalUrl.isNotEmpty()) {
+                IconButton(onClick = { onOpenExternal(song) }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = "Ouvrir",
+                        tint = song.source.brandColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
             IconButton(onClick = onPlayPause) {
@@ -1052,7 +1356,8 @@ fun AuxioFullPlayerModal(
     onDismiss: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
-    onPrev: () -> Unit
+    onPrev: () -> Unit,
+    onOpenExternal: (SongItem) -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1068,18 +1373,33 @@ fun AuxioFullPlayerModal(
                 modifier = Modifier
                     .size(220.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(AuxioTeal.copy(alpha = 0.2f)),
+                    .background(song.source.brandColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Album,
                     contentDescription = null,
                     modifier = Modifier.size(90.dp),
-                    tint = AuxioTeal
+                    tint = song.source.brandColor
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Surface(
+                color = song.source.brandColor.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Source: ${song.source.displayName}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = song.source.brandColor,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = song.title,
@@ -1142,6 +1462,19 @@ fun AuxioFullPlayerModal(
 
                 IconButton(onClick = onNext) {
                     Icon(Icons.Default.SkipNext, contentDescription = "Suivant", modifier = Modifier.size(36.dp))
+                }
+            }
+
+            if (song.externalUrl.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { onOpenExternal(song) },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = song.source.brandColor)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ouvrir dans ${song.source.displayName}")
                 }
             }
 
