@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- خلفية الدائرة الداكنة التيتانيوم -->
+    <path
+        android:fillColor="#13191C"
+        android:pathData="M0,0h108v108h-108z" />
+        
+    <!-- حواف ومسارات أسطوانة الفينيل المدمجة -->
+    <path
+        android:strokeColor="#243037"
+        android:strokeWidth="3"
+        android:pathData="M 54, 18 A 36,36 0 1 0 54,90 A 36,36 0 1 0 54,18 Z" />
+    <path
+        android:strokeColor="#1B252B"
+        android:strokeWidth="1.5"
+        android:pathData="M 54, 26 A 28,28 0 1 0 54,82 A 28,28 0 1 0 54,26 Z" />
+
+    <!-- مركز الأسطوانة -->
+    <path
+        android:fillColor="#1E2B32"
+        android:pathData="M 54, 34 A 20,20 0 1 0 54,74 A 20,20 0 1 0 54,34 Z" />
+
+    <!-- شريط النوتة العلوي (أصفر وأخضر Google Pixel) -->
+    <path
+        android:fillColor="#FBBC04"
+        android:pathData="M44,38 h12 v8 h-12 z" />
+    <path
+        android:fillColor="#34A853"
+        android:pathData="M56,38 h12 v8 h-12 z" />
+
+    <!-- ساق النوتة اليسرى (أزرق Google) -->
+    <path
+        android:fillColor="#4285F4"
+        android:pathData="M44,46 h7 v18 h-7 z" />
+
+    <!-- ساق النوتة اليمنى (أخضر Google) -->
+    <path
+        android:fillColor="#34A853"
+        android:pathData="M61,46 h7 v14 h-7 z" />
+
+    <!-- رأس النوتة اليسرى (أحمر Google) -->
+    <path
+        android:fillColor="#EA4335"
+        android:pathData="M 40,64 A 8,8 0 1 0 40,76 A 8,8 0 1 0 40,64 Z" />
+
+    <!-- رأس النوتة اليمنى (أصفر Google) -->
+    <path
+        android:fillColor="#FBBC04"
+        android:pathData="M 58,60 A 7,7 0 1 0 58,72 A 7,7 0 1 0 58,60 Z" />
+
+</vector>
