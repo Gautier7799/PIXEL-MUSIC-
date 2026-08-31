@@ -2,6 +2,7 @@ package com.example.pixelmusic
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -39,7 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-// --- Models ---
+// --- Data Models ---
 data class SongItem(
     val id: String,
     val title: String,
@@ -142,6 +144,14 @@ class AuxioMusicViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    // Navigation State
+    private val _currentScreen = MutableStateFlow("main")
+    val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
+
+    fun navigateTo(screen: String) {
+        _currentScreen.value = screen
+    }
+
     fun loadMusicSources() {
         _isMusicLoaded.value = true
         _songs.value = sampleSongs
@@ -151,6 +161,12 @@ class AuxioMusicViewModel : ViewModel() {
         _playlists.value = samplePlaylists
         if (_currentSong.value == null) {
             _currentSong.value = sampleSongs.firstOrNull()
+        }
+    }
+
+    fun refreshMusic() {
+        if (_isMusicLoaded.value) {
+            loadMusicSources()
         }
     }
 
@@ -197,7 +213,7 @@ class AuxioMusicViewModel : ViewModel() {
     }
 }
 
-// --- Colors ---
+// --- Theme Colors ---
 private val AuxioTeal = Color(0xFF00677D)
 private val AuxioTealDark = Color(0xFF4DD0E1)
 private val BadgeBgLight = Color(0xFFE4ECEE)
@@ -241,12 +257,31 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AuxioTheme {
-                AuxioMainScreen()
+                val viewModel: AuxioMusicViewModel = viewModel()
+                val currentScreen by viewModel.currentScreen.collectAsState()
+
+                AnimatedContent(
+                    targetState = currentScreen,
+                    label = "screen_transition"
+                ) { screen ->
+                    when (screen) {
+                        "settings" -> {
+                            AuxioSettingsScreen(
+                                onNavigateBack = { viewModel.navigateTo("main") },
+                                viewModel = viewModel
+                            )
+                        }
+                        else -> {
+                            AuxioMainScreen(viewModel = viewModel)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+// --- Main Screen ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
@@ -256,6 +291,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
     var showMenu by remember { mutableStateOf(false) }
     var showSourcesDialog by remember { mutableStateOf(false) }
     var showPlayerSheet by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
 
     val isMusicLoaded by viewModel.isMusicLoaded.collectAsState()
     val songs by viewModel.songs.collectAsState()
@@ -291,7 +327,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                             isSearchActive = false
                             viewModel.onSearchQueryChanged("")
                         }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
                     },
                     actions = {
@@ -320,7 +356,7 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                             Icon(Icons.Default.Search, contentDescription = "Rechercher")
                         }
                         IconButton(
-                            onClick = { /* Sort dialog */ },
+                            onClick = { showSortDialog = true },
                             modifier = Modifier.testTag("sort_button")
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Trier")
@@ -346,7 +382,10 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Paramètres") },
-                                    onClick = { showMenu = false },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.navigateTo("settings")
+                                    },
                                     leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) }
                                 )
                                 DropdownMenuItem(
@@ -565,6 +604,32 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
         }
     }
 
+    // Sort Dialog
+    if (showSortDialog) {
+        AlertDialog(
+            onDismissRequest = { showSortDialog = false },
+            icon = { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, tint = AuxioTeal) },
+            title = { Text("Trier par") },
+            text = {
+                Column {
+                    listOf("Titre", "Artiste", "Album", "Durée", "Date d'ajout").forEach { sortOption ->
+                        TextButton(
+                            onClick = { showSortDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(sortOption, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSortDialog = false }) {
+                    Text("Fermer")
+                }
+            }
+        )
+    }
+
     // Sources Dialog
     if (showSourcesDialog) {
         AlertDialog(
@@ -607,6 +672,208 @@ fun AuxioMainScreen(viewModel: AuxioMusicViewModel = viewModel()) {
             onNext = { viewModel.nextSong() },
             onPrev = { viewModel.previousSong() }
         )
+    }
+}
+
+// --- Settings Screen ---
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AuxioSettingsScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: AuxioMusicViewModel
+) {
+    BackHandler { onNavigateBack() }
+    var snackbarMessage by remember { mutableStateOf<String?>(null) }
+    var showSourcesDialog by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Paramètres",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                }
+            )
+        },
+        snackbarHost = {
+            snackbarMessage?.let { msg ->
+                Snackbar(
+                    action = {
+                        TextButton(onClick = { snackbarMessage = null }) {
+                            Text("OK", color = AuxioTeal)
+                        }
+                    },
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(msg)
+                }
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            item {
+                SettingsCategoryItem(
+                    icon = Icons.Default.Palette,
+                    title = "Apparence",
+                    subtitle = "Changer le thème et les couleurs de l'application",
+                    onClick = { snackbarMessage = "Paramètre Apparence sélectionné" }
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    icon = Icons.Default.Tune,
+                    title = "Personnalisation",
+                    subtitle = "Personnaliser les commandes et le comportement de l'interface utilisateur",
+                    onClick = { snackbarMessage = "Paramètre Personnalisation sélectionné" }
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    icon = Icons.Default.MusicNote,
+                    title = "Contenu",
+                    subtitle = "Contrôler le chargement de la musique et des images",
+                    onClick = { snackbarMessage = "Paramètre Contenu sélectionné" }
+                )
+            }
+            item {
+                SettingsCategoryItem(
+                    icon = Icons.Default.PlayArrow,
+                    title = "Audio",
+                    subtitle = "Configurer le son et le comportement de lecture",
+                    onClick = { snackbarMessage = "Paramètre Audio sélectionné" }
+                )
+            }
+
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+                Text(
+                    text = "Bibliothèque",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AuxioTeal,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                SettingsActionItem(
+                    title = "Sources de la musique",
+                    subtitle = "Gérer d'où la musique doit être chargée",
+                    onClick = { showSourcesDialog = true }
+                )
+            }
+            item {
+                SettingsActionItem(
+                    title = "Actualiser la musique",
+                    subtitle = "Recharge la bibliothèque musicale, en se servant de balises en cache si possible",
+                    onClick = {
+                        viewModel.refreshMusic()
+                        snackbarMessage = "Bibliothèque musicale actualisée avec succès"
+                    }
+                )
+            }
+            item {
+                SettingsActionItem(
+                    title = "Scanner à nouveau la musique",
+                    subtitle = "Efface le cache de balises et recharge entièrement la bibliothèque musicale (lent, mais plus complet)",
+                    onClick = {
+                        viewModel.loadMusicSources()
+                        snackbarMessage = "Scan complet effectué avec succès"
+                    }
+                )
+            }
+        }
+    }
+
+    if (showSourcesDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourcesDialog = false },
+            icon = { Icon(Icons.Default.Folder, contentDescription = null, tint = AuxioTeal) },
+            title = { Text("Sources de la musique") },
+            text = {
+                Column {
+                    Text("Gérer les dossiers et sources musicales :")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            viewModel.loadMusicSources()
+                            showSourcesDialog = false
+                            snackbarMessage = "Sources musicales synchronisées"
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AuxioTeal),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Synchroniser les dossiers")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSourcesDialog = false }) {
+                    Text("Fermer")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun SettingsCategoryItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 4.dp),
+        leadingContent = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        headlineContent = {
+            Text(text = title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        },
+        supportingContent = {
+            Text(text = subtitle, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    )
+}
+
+@Composable
+fun SettingsActionItem(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(text = subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
