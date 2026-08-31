@@ -1815,7 +1815,7 @@ fun AuxioSettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Lecture sans blanc (Gapless)", fontWeight = FontWeight.SemiBold)
-                            Text("Éliminer les silences entre les morceaux", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Éliminer les silences بين les morceaux", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = gapless, onCheckedChange = { viewModel.toggleGapless() })
                     }
