@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,43 +22,59 @@ import com.example.pixelmusic.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(viewModel: MusicViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun SearchScreen(
+    onBackClick: () -> Unit,
+    viewModel: MusicViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+) {
     var searchQuery by remember { mutableStateOf("") }
     val songs by viewModel.songs.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // حقل البحث
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            placeholder = { Text("ابحث عن أغنية أو فنان...") },
-            trailingIcon = {
-                IconButton(onClick = { 
-                    if (searchQuery.isNotBlank()) viewModel.searchMusic(searchQuery) 
-                }) {
-                    Icon(Icons.Default.Search, contentDescription = "بحث")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("بحث عن الموسيقى") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "رجوع")
+                    }
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp)
-        )
+            )
+        }
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // حقل البحث
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                placeholder = { Text("ابحث عن أغنية أو فنان...") },
+                trailingIcon = {
+                    IconButton(onClick = { 
+                        if (searchQuery.isNotBlank()) viewModel.searchMusic(searchQuery) 
+                    }) {
+                        Icon(Icons.Default.Search, contentDescription = "بحث")
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp)
+            )
 
-        // مؤشر التحميل أو قائمة النتائج
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                items(songs) { song ->
-                    SongItem(song = song, onClick = { /* TODO: تشغيل الأغنية */ })
+            // مؤشر التحميل أو قائمة النتائج
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    items(songs) { song ->
+                        SongItem(song = song, onClick = { /* TODO: تشغيل الأغنية */ })
+                    }
                 }
             }
         }
@@ -73,7 +90,6 @@ fun SongItem(song: Song, onClick: () -> Unit) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // صورة الألبوم
         AsyncImage(
             model = song.coverUrl,
             contentDescription = "Cover for ${song.title}",
@@ -85,7 +101,6 @@ fun SongItem(song: Song, onClick: () -> Unit) {
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // تفاصيل الأغنية (عنوان وفنان)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
