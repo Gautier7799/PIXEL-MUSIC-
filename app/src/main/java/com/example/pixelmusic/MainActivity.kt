@@ -13,8 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,14 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
-// 1. Data Model
+// Model
 data class Song(
     val id: String,
     val title: String,
@@ -38,7 +34,7 @@ data class Song(
     val duration: String
 )
 
-// 2. ViewModel
+// ViewModel
 class MusicViewModel : ViewModel() {
     private val allSongs = listOf(
         Song("1", "Midnight Memories", "Pixel Artist", "3:45"),
@@ -78,42 +74,26 @@ class MusicViewModel : ViewModel() {
     }
 }
 
-// 3. UI Theme
-@Composable
-fun PixelMusicTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val colorScheme = if (darkTheme) {
-        darkColorScheme(
-            primary = Color(0xFFBB86FC),
-            background = Color(0xFF121212),
-            surface = Color(0xFF1E1E1E)
-        )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFF6200EE),
-            background = Color(0xFFF6F6F6),
-            surface = Color.White
-        )
-    }
-    MaterialTheme(colorScheme = colorScheme, content = content)
-}
-
-// 4. Main Activity
+// Activity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PixelMusicTheme {
+            val isDark = isSystemInDarkTheme()
+            val colors = if (isDark) {
+                darkColorScheme(primary = Color(0xFFBB86FC), background = Color(0xFF121212), surface = Color(0xFF1E1E1E))
+            } else {
+                lightColorScheme(primary = Color(0xFF6200EE), background = Color(0xFFF6F6F6), surface = Color.White)
+            }
+            MaterialTheme(colorScheme = colors) {
                 MusicAppScreen()
             }
         }
     }
 }
 
-// 5. Main Screen
+// Screen
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicAppScreen(viewModel: MusicViewModel = viewModel()) {
@@ -145,13 +125,11 @@ fun MusicAppScreen(viewModel: MusicViewModel = viewModel()) {
                             Text(song.title, fontWeight = FontWeight.Bold)
                             Text(song.artist, style = MaterialTheme.typography.bodySmall)
                         }
-                        Row {
-                            IconButton(onClick = { viewModel.togglePlayPause() }) {
-                                Icon(
-                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = "تشغيل / إيقاف"
-                                )
-                            }
+                        IconButton(onClick = { viewModel.togglePlayPause() }) {
+                            Icon(
+                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = "تشغيل / إيقاف"
+                            )
                         }
                     }
                 }
