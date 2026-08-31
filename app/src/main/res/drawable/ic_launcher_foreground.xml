@@ -5,7 +5,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Outer Vinyl Groove rings -->
+    <!-- حواف ومسارات أسطوانة الفينيل المدمجة -->
     <path
         android:strokeColor="#2C3844"
         android:strokeWidth="1.8"
@@ -16,12 +16,12 @@
         android:strokeWidth="1.5"
         android:pathData="M54,54m-27,0a27,27 0 1,0 54,0a27,27 0 1,0 -54,0" />
 
-    <!-- Center Turntable Core -->
+    <!-- مركز الأسطوانة -->
     <path
         android:fillColor="#1B242C"
         android:pathData="M54,54m-21,0a21,21 0 1,0 42,0a21,21 0 1,0 -42,0" />
 
-    <!-- Google Pixel Color Glow Arcs -->
+    <!-- أقواس إشعاع ألوان Google Pixel -->
     <path
         android:strokeColor="#FBBC04"
         android:strokeWidth="2.5"
@@ -39,7 +39,7 @@
         android:strokeWidth="2.5"
         android:pathData="M27,54 A27,27 0 0,1 54,27" />
 
-    <!-- Top Connected Musical Beam -->
+    <!-- شريط النوتة العلوي -->
     <path
         android:fillColor="#FBBC04"
         android:pathData="M43,35 h14 v6 h-14 z" />
@@ -47,17 +47,15 @@
         android:fillColor="#34A853"
         android:pathData="M57,35 h14 v6 h-14 z" />
 
-    <!-- Left Note Stem -->
+    <!-- ساق النوتة اليسرى واليمنى -->
     <path
         android:fillColor="#4285F4"
         android:pathData="M43,41 h7 v21 h-7 z" />
-
-    <!-- Right Note Stem -->
     <path
         android:fillColor="#34A853"
         android:pathData="M64,41 h7 v16 h-7 z" />
 
-    <!-- Note Heads -->
+    <!-- رؤوس النوتة الموسيقية -->
     <path
         android:fillColor="#EA4335"
         android:pathData="M39,56 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
@@ -72,7 +70,7 @@
         android:fillColor="#34A853"
         android:pathData="M63,52 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
 
-    <!-- Star Glow -->
+    <!-- نجمة لمعان في الزاوية -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M73,33 L75,37 L79,39 L75,41 L73,45 L71,41 L67,39 L71,37 Z" />
